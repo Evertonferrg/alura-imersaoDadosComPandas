@@ -133,6 +133,65 @@ with col_graf4:
     else:
         st.warning("Nenhum dado para exibir no gráfico de países.")
 
+import requests
+import json
+
+# Criar a coluna 'estado' fictícia para todo df_filtrado, distribuindo por todo Brasil
+estados = [
+    'SP', 'RJ', 'MG', 'RS', 'BA', 'PR', 'SC', 'GO', 'PE', 'CE', 
+    'PA', 'AM', 'MA', 'PB', 'ES', 'DF', 'MT', 'AL', 'PI', 'RN',
+    'RO', 'TO', 'SE', 'RR', 'AP', 'AC'
+]
+
+# Só fazer se df_filtrado não estiver vazio
+if not df_filtrado.empty:
+    import numpy as np
+    np.random.seed(42)
+    df_filtrado = df_filtrado.copy()
+    df_filtrado['estado'] = np.random.choice(estados, size=len(df_filtrado))
+
+    # Agrupar quantidade de pessoas por estado e cargo
+    df_quantidade = df_filtrado.groupby(['estado', 'cargo']).size().reset_index(name='quantidade')
+
+    # Mapeamento sigla -> nome completo para o mapa
+    sigla_para_nome = {
+        'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA': 'Bahia',
+        'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo', 'GO': 'Goiás', 'MA': 'Maranhão',
+        'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul', 'MG': 'Minas Gerais', 'PA': 'Pará', 'PB': 'Paraíba',
+        'PR': 'Paraná', 'PE': 'Pernambuco', 'PI': 'Piauí', 'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte',
+        'RS': 'Rio Grande do Sul', 'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina', 'SP': 'São Paulo',
+        'SE': 'Sergipe', 'TO': 'Tocantins'
+    }
+    df_quantidade['estado_nome'] = df_quantidade['estado'].map(sigla_para_nome)
+
+    # Filtrar só Data Scientist
+    df_cd = df_quantidade[df_quantidade['cargo'] == 'Data Scientist']
+
+    # Baixar GeoJSON do Brasil
+    geojson_url = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson"
+    response = requests.get(geojson_url)
+    geojson = json.loads(response.text)
+
+    # Criar o gráfico choropleth
+    fig_mapa = px.choropleth(
+        df_cd,
+        geojson=geojson,
+        locations='estado_nome',
+        featureidkey='properties.name',
+        color='quantidade',
+        color_continuous_scale='Viridis',
+        title='Quantidade de Data Scientists por Estado no Brasil',
+        labels={'quantidade': 'Quantidade', 'estado_nome': 'Estado'}
+    )
+    fig_mapa.update_geos(fitbounds="locations", visible=False)
+
+    # Mostrar no Streamlit
+    st.subheader("🌎 Mapa: Quantidade de Data Scientists por Estado no Brasil")
+    st.plotly_chart(fig_mapa, use_container_width=True)
+
+else:
+    st.warning("Não há dados para gerar o mapa de Data Scientists por estado.")
+
 
 # --- Tabela de Dados Detalhados ---
 st.subheader("Dados Detalhados")
